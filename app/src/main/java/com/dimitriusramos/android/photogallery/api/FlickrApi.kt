@@ -2,6 +2,8 @@ package com.dimitriusramos.android.photogallery.api
 
 import retrofit2.Call
 import retrofit2.http.GET
+import retrofit2.http.Url
+import okhttp3.ResponseBody
 
 interface FlickrApi {
     @GET("services/rest/? method=flickr.interestingness.getList"
@@ -11,4 +13,7 @@ interface FlickrApi {
             + "&extras=url_s"
     )
     fun fetchPhotos(): Call<FlickrResponse>
+
+    @GET
+    fun fetchUrlBytes(@Url url: String): Call<ResponseBody>
 }
