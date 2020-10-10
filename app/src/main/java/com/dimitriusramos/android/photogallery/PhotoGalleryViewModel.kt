@@ -1,12 +1,31 @@
 package com.dimitriusramos.android.photogallery
 
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.*
 
-class PhotoGalleryViewModel: ViewModel() {
+class PhotoGalleryViewModel(private val app: Application) : AndroidViewModel(app) {
     val galleryItemLiveData: LiveData<List<GalleryItem>>
-    init{
-        // calling the flickrFetchr here so it can persist across rotation
-        galleryItemLiveData = FlickrFetchr().fetchPhotos()
+
+    private val flickrFetchr = FlickrFetchr()
+    private val mutableSearchTerm = MutableLiveData<String>()
+
+    val searchTerm: String
+        get() = mutableSearchTerm.value ?: ""
+    init {
+
+        mutableSearchTerm.value = QueryPreferences.getStoredQuery(app)
+
+        galleryItemLiveData =
+            Transformations.switchMap(mutableSearchTerm) { searchTerm ->
+                if (searchTerm.isBlank()) {
+                    flickrFetchr.fetchPhotos()
+                } else {
+                    flickrFetchr.searchPhotos(searchTerm)
+                }
+            }
+    }
+    fun fetchPhotos(query: String = "") {
+        QueryPreferences.setStoredQuery(app, query)
+        mutableSearchTerm.value = query
     }
 }

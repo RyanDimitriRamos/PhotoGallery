@@ -6,10 +6,9 @@ import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.os.Handler
 import android.util.Log
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
+import android.view.*
 import android.widget.ImageView
+import androidx.appcompat.widget.SearchView
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
@@ -29,6 +28,7 @@ class PhotoGalleryFragment : Fragment() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         retainInstance = true
+        setHasOptionsMenu(true)
         photoGalleryViewModel = ViewModelProvider(this).get(PhotoGalleryViewModel::class.java)
         val responseHandler = Handler()
         thumbnailDownloader = ThumbnailDownloader(responseHandler) { photoHolder, bitmap ->
@@ -39,7 +39,11 @@ class PhotoGalleryFragment : Fragment() {
 
     }
 
-    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
         viewLifecycleOwner.lifecycle.addObserver(thumbnailDownloader.viewLifecycleObserver)
         val view = inflater.inflate(R.layout.fragment_photo_gallery, container, false)
         photoRecyclerView = view.findViewById(R.id.photo_recycler_view)
@@ -64,7 +68,47 @@ class PhotoGalleryFragment : Fragment() {
         lifecycle.removeObserver(thumbnailDownloader.fragmentLifecycleObserver)
     }
 
-    private class PhotoHolder(itemImageView: ImageView) : RecyclerView.ViewHolder(itemImageView) {
+    override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
+        super.onCreateOptionsMenu(menu, inflater)
+        inflater.inflate(R.menu.fragment_photo_gallery, menu)
+
+        val searchItem: MenuItem = menu.findItem(R.id.menu_item_search)
+        val searchView = searchItem.actionView as SearchView
+        searchView.apply {
+            setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+                override fun onQueryTextSubmit(queryText: String): Boolean {
+                    Log.d(TAG, "QueryTextSubmit: $queryText")
+                    photoGalleryViewModel.fetchPhotos(queryText)
+                    searchView.clearFocus()
+                    return true
+                }
+
+                override fun onQueryTextChange(queryText: String): Boolean {
+                    Log.d(TAG, "QueryTextChange: $queryText")
+                    return false
+                }
+
+            })
+
+
+            setOnSearchClickListener {
+                searchView.setQuery(photoGalleryViewModel.searchTerm, false)
+            }
+        }
+    }
+
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.menu_item_clear -> {
+                photoGalleryViewModel.fetchPhotos()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
+    }
+
+        private class PhotoHolder(itemImageView: ImageView) : RecyclerView.ViewHolder(itemImageView) {
         val bindDrawable: (Drawable) -> Unit = itemImageView::setImageDrawable
     }
 
@@ -81,7 +125,10 @@ class PhotoGalleryFragment : Fragment() {
 
         override fun onBindViewHolder(holder: PhotoHolder, position: Int) {
             val galleryItem = galleryItems[position]
-            val placeholder: Drawable = ContextCompat.getDrawable(requireContext(), R.drawable.default_image_thumbnail) ?: ColorDrawable()
+            val placeholder: Drawable = ContextCompat.getDrawable(
+                requireContext(),
+                R.drawable.default_image_thumbnail
+            ) ?: ColorDrawable()
             holder.bindDrawable(placeholder)
             thumbnailDownloader.queueThumbnail(holder, galleryItem.url)
         }
